@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>THC Inventory System</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">THE HUNGRY CHEF</div>
+          <h1>INVENTORY MANAGEMENT</h1>
+        </div>
+        <div class="top-actions">
+          <button class="ghost-btn" id="demoBtn">Demo / Test Mode</button>
+          <button class="ghost-btn" id="exportBtn">Export Data</button>
+        </div>
+      </header>
+
+      <nav class="nav-tabs" id="mainNav">
+        <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+        <button class="nav-btn" data-view="inventory">Master Inventory</button>
+        <button class="nav-btn" data-view="production">Production</button>
+        <button class="nav-btn" data-view="stocks">Stocks In</button>
+        <button class="nav-btn" data-view="night">Night Operations</button>
+        <button class="nav-btn" data-view="reports">Reports</button>
+      </nav>
+
+      <main>
+        <section id="dashboard" class="view active">
+          <div class="page-header">
+            <div>
+              <h2>Dashboard</h2>
+              <p>Daily restaurant inventory overview</p>
+            </div>
+            <div class="date-control">
+              <label>Date</label>
+              <input type="date" id="dashboardDate" />
+            </div>
+          </div>
+          <div class="kpi-grid" id="dashboardKpis"></div>
+          <div class="two-column">
+            <div class="panel">
+              <h3>Low Stock Items</h3>
+              <div id="lowStockList"></div>
+            </div>
+            <div class="panel">
+              <h3>Replenishment Required</h3>
+              <div id="replenishmentList"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Recent Inventory Activity</h3>
+            <div id="recentActivityList"></div>
+          </div>
+        </section>
+
+        <section id="inventory" class="view">
+          <div class="page-header">
+            <div>
+              <h2>Master Inventory</h2>
+              <p>Manage items and thresholds</p>
+            </div>
+            <button class="primary-btn" id="showAddItem">+ Add New Item</button>
+          </div>
+
+          <div class="panel add-item-form">
+            <h3>Add / Edit Item</h3>
+            <form id="itemForm">
+              <input type="hidden" id="itemId" />
+              <div class="form-grid">
+                <label>Item Name<input id="itemName" required /></label>
+                <label>Category<input id="itemCategory" /></label>
+                <label>Unit<input id="itemUnit" value="pcs" /></label>
+                <label>Reorder Level<input id="itemReorder" type="number" step="any" min="0" /></label>
+                <label>Critical Level<input id="itemCritical" type="number" step="any" min="0" /></label>
+                <label>Target Stock<input id="itemTarget" type="number" step="any" min="0" /></label>
+                <label>Active<select id="itemActive"><option value="1">YES</option><option value="0">NO</option></select></label>
+                <label>Notes<textarea id="itemNotes"></textarea></label>
+              </div>
+              <div class="action-row">
+                <button type="submit" class="primary-btn">Save Item</button>
+                <button type="button" class="ghost-btn" id="cancelItemEdit">Cancel</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th>Unit</th>
+                  <th>Reorder</th>
+                  <th>Critical</th>
+                  <th>Target</th>
+                  <th>Active</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="itemsTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="production" class="view">
+          <div class="page-header">
+            <div>
+              <h2>Production</h2>
+              <p>Production Team records</p>
+            </div>
+          </div>
+          <div class="panel">
+            <form id="productionForm">
+              <div class="form-grid">
+                <label>Date<input type="date" id="productionDate" required /></label>
+                <label>Item<select id="productionItem" required></select></label>
+                <label>Quantity<input id="productionQty" type="text" placeholder="1/2, 2 1/2, 40" required /></label>
+                <label>Unit<input id="productionUnit" placeholder="pcs" /></label>
+                <label class="full-span">Notes<textarea id="productionNotes"></textarea></label>
+              </div>
+              <div class="fraction-pills">
+                <button type="button" class="fraction-btn" data-value="1/2">1/2</button>
+                <button type="button" class="fraction-btn" data-value="1/4">1/4</button>
+                <button type="button" class="fraction-btn" data-value="3/4">3/4</button>
+                <button type="button" class="fraction-btn" data-value="1/8">1/8</button>
+                <button type="button" class="fraction-btn" data-value="1/3">1/3</button>
+              </div>
+              <div class="action-row">
+                <button type="submit" class="primary-btn">Submit Production</button>
+              </div>
+            </form>
+          </div>
+          <div class="panel">
+            <h3>Today’s Production</h3>
+            <div id="productionList"></div>
+          </div>
+        </section>
+
+        <section id="stocks" class="view">
+          <div class="page-header">
+            <div>
+              <h2>Stocks In</h2>
+              <p>Inventory entering the restaurant</p>
+            </div>
+          </div>
+          <div class="panel">
+            <form id="stocksInForm">
+              <div class="form-grid">
+                <label>Date<input type="date" id="stockDate" required /></label>
+                <label>Item<select id="stockItem" required></select></label>
+                <label>Quantity<input id="stockQuantity" type="text" placeholder="20 or 1/2" required /></label>
+                <label>Unit<input id="stockUnit" placeholder="pcs" /></label>
+                <label>Source/Reason<input id="stockSource" value="PURCHASE" /></label>
+                <label>Reference<input id="stockReference" /></label>
+                <label class="full-span">Notes<textarea id="stockNotes"></textarea></label>
+              </div>
+              <div class="action-row">
+                <button type="submit" class="primary-btn">Save Stock In</button>
+              </div>
+            </form>
+          </div>
+          <div class="panel">
+            <h3>Today’s Stocks In</h3>
+            <div id="stockList"></div>
+          </div>
+        </section>
+
+        <section id="night" class="view">
+          <div class="page-header">
+            <div>
+              <h2>Night Operations</h2>
+              <p>Physical count and automatic usage</p>
+            </div>
+          </div>
+          <div class="panel">
+            <form id="nightForm">
+              <div class="form-grid">
+                <label>Date<input type="date" id="nightDate" required /></label>
+                <label>Shift<input value="NIGHT" disabled /></label>
+                <label>Item<select id="nightItem" required></select></label>
+                <label>Beginning Stock<input id="nightBeginning" type="text" readonly /></label>
+                <label>Production<input id="nightProduction" type="text" readonly /></label>
+                <label>Stocks In<input id="nightStocksIn" type="text" readonly /></label>
+                <label>Physical Ending Count<input id="nightEnding" type="text" placeholder="20 or 1/2" required /></label>
+                <label class="full-span">Notes<textarea id="nightNotes"></textarea></label>
+              </div>
+              <div class="action-row">
+                <button type="submit" class="primary-btn">Submit Physical Count</button>
+              </div>
+            </form>
+          </div>
+          <div class="panel">
+            <h3>Night Operations Report</h3>
+            <div id="nightList"></div>
+          </div>
+        </section>
+
+        <section id="reports" class="view">
+          <div class="page-header">
+            <div>
+              <h2>Reports</h2>
+              <p>Daily inventory and operations summaries</p>
+            </div>
+            <div class="date-control">
+              <label>Date</label>
+              <input type="date" id="reportDate" />
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Daily Inventory</h3>
+            <div id="dailyReportList"></div>
+          </div>
+          <div class="panel">
+            <h3>Production Report</h3>
+            <div id="productionReportList"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

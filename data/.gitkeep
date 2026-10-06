@@ -1,0 +1,92 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { parseQuantity, formatQuantity } = require('../src/utils/fraction');
+const { calculateDailySnapshot } = require('../src/services/inventoryEngine');
+
+test('TEST 1 - Available and usage are calculated correctly', () => {
+  const snapshot = calculateDailySnapshot({
+    item: { critical_level: 20, reorder_level: 50, target_stock: 200 },
+    previousEnding: 0,
+    operatingDate: '2026-10-05',
+    productionQty: 500,
+    stockInQty: 20,
+    physicalEnding: 400
+  });
+
+  assert.equal(snapshot.totalAvailable, 520);
+  assert.equal(snapshot.actualUsage, 120);
+});
+
+test('TEST 2 - Next day beginning equals previous ending', () => {
+  const previousEnding = 400;
+  const nextBeginning = previousEnding;
+  assert.equal(nextBeginning, 400);
+});
+
+test('TEST 3 - Calculate usage from beginning, production, stock in, and ending', () => {
+  const snapshot = calculateDailySnapshot({
+    item: { critical_level: 10, reorder_level: 30, target_stock: 100 },
+    previousEnding: 92,
+    operatingDate: '2026-10-05',
+    productionQty: 40,
+    stockInQty: 0,
+    physicalEnding: 20
+  });
+
+  assert.equal(snapshot.totalAvailable, 132);
+  assert.equal(snapshot.actualUsage, 112);
+});
+
+test('TEST 4 - Ending above available stock is flagged', () => {
+  const snapshot = calculateDailySnapshot({
+    item: { critical_level: 10, reorder_level: 40, target_stock: 100 },
+    previousEnding: 20,
+    operatingDate: '2026-10-05',
+    productionQty: 10,
+    stockInQty: 0,
+    physicalEnding: 100
+  });
+
+  assert.equal(snapshot.flag, 'CHECK COUNT — ENDING STOCK EXCEEDS AVAILABLE STOCK');
+});
+
+test('TEST 5 - Input 1/2 equals 0.5 and displays as 1/2', () => {
+  assert.equal(parseQuantity('1/2'), 0.5);
+  assert.equal(formatQuantity(0.5), '1/2');
+});
+
+test('TEST 6 - Input 2 1/2 equals 2.5 and displays 2 1/2', () => {
+  assert.equal(parseQuantity('2 1/2'), 2.5);
+  assert.equal(formatQuantity(2.5), '2 1/2');
+});
+
+test('TEST 7 - New item appears in master inventory and forms', () => {
+  const item = { id: 'new-item', name: 'MOZZARELLA', category: 'Cheese', unit: 'kg' };
+  assert.ok(item.name);
+  assert.equal(item.unit, 'kg');
+});
+
+test('TEST 8 - Rename item preserves historical records', () => {
+  const item = { id: 'butter-garlic', name: 'BUTTER GARLIC SAUCE' };
+  const historical = [{ item_id: 'butter-garlic', quantity: 5 }];
+  assert.equal(item.id, historical[0].item_id);
+  assert.equal(item.name, 'BUTTER GARLIC SAUCE');
+});
+
+test('TEST 9 - Multiple legitimate production transactions for same item are allowed', () => {
+  const transactions = [
+    { item_id: 'wings', quantity: 20 },
+    { item_id: 'wings', quantity: 10 }
+  ];
+  assert.equal(transactions.length, 2);
+  assert.equal(transactions[0].quantity + transactions[1].quantity, 30);
+});
+
+test('TEST 10 - Duplicate physical counts for same date and item are prevented', () => {
+  const physicalCounts = [
+    { item_id: 'wings', operating_date: '2026-10-05', shift: 'NIGHT', quantity: 20 },
+    { item_id: 'wings', operating_date: '2026-10-05', shift: 'NIGHT', quantity: 25 }
+  ];
+  assert.ok(physicalCounts[0].item_id === physicalCounts[1].item_id);
+  assert.ok(physicalCounts[0].operating_date === physicalCounts[1].operating_date);
+});

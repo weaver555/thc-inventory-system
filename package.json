@@ -1,0 +1,16 @@
+{
+  "name": "thc-inventory-system",
+  "version": "1.0.0",
+  "description": "Restaurant inventory management system for THE HUNGRY CHEF",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.1",
+    "express": "^4.19.2"
+  }
+}
