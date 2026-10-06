@@ -1,7 +1,5 @@
 /**
- * Database initialization and management
- * Sets up SQLite database with all required tables
- * Handles schema creation and seed data
+ * SQLite database initialization and seed data.
  */
 
 const crypto = require('crypto');
@@ -11,19 +9,20 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-const dataDir = path.resolve(__dirname, '../data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+const dbPath = process.env.DB_PATH || path.join(__dirname, '../data/thc_inventory.db');
+const dataDir = path.dirname(dbPath);
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const dbPath = process.env.DB_PATH || path.join(dataDir, 'thc_inventory.db');
 const Database = require('better-sqlite3');
 const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-// Initialize database schema
+function uuid() {
+  return crypto.randomUUID();
+}
+
 function initializeDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS categories (
@@ -63,7 +62,7 @@ function initializeDatabase() {
       quantity REAL NOT NULL,
       unit_id TEXT,
       operating_date TEXT NOT NULL,
-      source TEXT NOT NULL DEFAULT 'PRODUCTION TEAM',
+      source TEXT NOT NULL,
       notes TEXT,
       created_at TEXT NOT NULL,
       FOREIGN KEY(item_id) REFERENCES items(id),
@@ -128,75 +127,57 @@ function initializeDatabase() {
     );
   `);
 
-  // Create indexes
   db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_production_date ON production_transactions(operating_date);
-    CREATE INDEX IF NOT EXISTS idx_production_item ON production_transactions(item_id);
-    CREATE INDEX IF NOT EXISTS idx_stock_in_date ON stock_in_transactions(operating_date);
-    CREATE INDEX IF NOT EXISTS idx_stock_in_item ON stock_in_transactions(item_id);
-    CREATE INDEX IF NOT EXISTS idx_physical_count_date ON physical_counts(operating_date);
-    CREATE INDEX IF NOT EXISTS idx_physical_count_item ON physical_counts(item_id);
-    CREATE INDEX IF NOT EXISTS idx_inventory_transactions_date ON inventory_transactions(operating_date);
-    CREATE INDEX IF NOT EXISTS idx_inventory_transactions_item ON inventory_transactions(item_id);
-    CREATE INDEX IF NOT EXISTS idx_audit_logs_table ON audit_logs(table_name);
+    CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);
+    CREATE INDEX IF NOT EXISTS idx_prod_date ON production_transactions(operating_date);
+    CREATE INDEX IF NOT EXISTS idx_stockin_date ON stock_in_transactions(operating_date);
+    CREATE INDEX IF NOT EXISTS idx_pc_date ON physical_counts(operating_date);
+    CREATE INDEX IF NOT EXISTS idx_inventory_date ON inventory_transactions(operating_date);
   `);
 }
 
-// Seed default categories and units
 function seedDefaultCategoriesAndUnits() {
-  const categoriesExist = db.prepare('SELECT COUNT(*) as count FROM categories').get().count > 0;
-  if (categoriesExist) return;
+  const categoryCount = db.prepare('SELECT COUNT(*) AS count FROM categories').get().count;
+  if (categoryCount === 0) {
+    const now = new Date().toISOString();
+    const categories = [
+      ['cat-meat', 'Meat', 'Raw and cooked meats'],
+      ['cat-sauce', 'Sauce', 'Sauces and condiments'],
+      ['cat-dry-goods', 'Dry Goods', 'Dry goods and pantry stock'],
+      ['cat-dairy', 'Dairy', 'Dairy and cheese'],
+      ['cat-vegetable', 'Vegetable', 'Vegetables and produce'],
+      ['cat-beverage', 'Beverage', 'Drinks'],
+      ['cat-bakery', 'Bakery', 'Bread and bakery items'],
+      ['cat-fruit', 'Fruit', 'Fruit items'],
+      ['cat-herb', 'Herb', 'Fresh herbs'],
+      ['cat-seasoning', 'Seasoning', 'Seasonings and spices']
+    ];
 
-  const now = new Date().toISOString();
+    const units = [
+      ['unit-pcs', 'pcs', 'pcs'],
+      ['unit-kg', 'kg', 'kg'],
+      ['unit-container', 'container', 'container'],
+      ['unit-pack', 'pack', 'pack'],
+      ['unit-box', 'box', 'box'],
+      ['unit-gallon', 'gallon', 'gallon'],
+      ['unit-bottle', 'bottle', 'bottle'],
+      ['unit-bundle', 'bundle', 'bundle']
+    ];
 
-  const categories = [
-    ['cat-meat', 'Meat', 'Raw and cooked meat products'],
-    ['cat-sauce', 'Sauce', 'Sauces and condiments'],
-    ['cat-dry-goods', 'Dry Goods', 'Non-perishable dry items'],
-    ['cat-dairy', 'Dairy', 'Dairy and cheese products'],
-    ['cat-vegetable', 'Vegetable', 'Fresh vegetables'],
-    ['cat-herb', 'Herb', 'Fresh herbs and seasonings'],
-    ['cat-seasoning', 'Seasoning', 'Seasoning mixes and spices'],
-    ['cat-beverage', 'Beverage', 'Drinks and beverages'],
-    ['cat-bakery', 'Bakery', 'Baked goods'],
-    ['cat-fruit', 'Fruit', 'Fresh and canned fruits']
-  ];
+    const categoryInsert = db.prepare('INSERT INTO categories (id, name, description, created_at) VALUES (?, ?, ?, ?)');
+    const unitInsert = db.prepare('INSERT INTO units (id, name, abbreviation, created_at) VALUES (?, ?, ?, ?)');
 
-  const units = [
-    ['unit-pcs', 'pcs', 'pieces'],
-    ['unit-kg', 'kg', 'kilogram'],
-    ['unit-container', 'container', 'container'],
-    ['unit-pack', 'pack', 'pack'],
-    ['unit-box', 'box', 'box'],
-    ['unit-bottle', 'bottle', 'bottle'],
-    ['unit-gallon', 'gallon', 'gallon'],
-    ['unit-bundle', 'bundle', 'bundle']
-  ];
-
-  const insertCategory = db.prepare(
-    'INSERT INTO categories (id, name, description, created_at) VALUES (?, ?, ?, ?)'
-  );
-  const insertUnit = db.prepare(
-    'INSERT INTO units (id, name, abbreviation, created_at) VALUES (?, ?, ?, ?)'
-  );
-
-  for (const [id, name, description] of categories) {
-    insertCategory.run(id, name, description, now);
-  }
-
-  for (const [id, name, abbr] of units) {
-    insertUnit.run(id, name, abbr, now);
+    for (const [id, name, description] of categories) categoryInsert.run(id, name, description, now);
+    for (const [id, name, abbreviation] of units) unitInsert.run(id, name, abbreviation, now);
   }
 }
 
-// Seed default inventory items
 function seedDefaultInventoryItems() {
-  const itemsExist = db.prepare('SELECT COUNT(*) as count FROM items').get().count > 0;
-  if (itemsExist) return;
+  const itemCount = db.prepare('SELECT COUNT(*) AS count FROM items').get().count;
+  if (itemCount > 0) return;
 
   const now = new Date().toISOString();
-
-  const seedItems = [
+  const defaults = [
     ['WINGS RAW', 'cat-meat', 'unit-pcs', 30, 10, 200],
     ['WINGS', 'cat-meat', 'unit-pcs', 30, 10, 200],
     ['PATTY', 'cat-meat', 'unit-pcs', 25, 10, 120],
@@ -247,63 +228,30 @@ function seedDefaultInventoryItems() {
     ['PINEAPPLE SLICES', 'cat-fruit', 'unit-pack', 3, 1, 12]
   ];
 
-  const insertItem = db.prepare(`
-    INSERT INTO items (
-      id, name, category_id, unit_id, reorder_level, critical_level, target_stock,
-      active, source, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const insert = db.prepare(`
+    INSERT INTO items (id, name, category_id, unit_id, reorder_level, critical_level, target_stock, active, source, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'SYSTEM', ?, ?)
   `);
 
-  for (const [name, categoryId, unitId, reorder, critical, target] of seedItems) {
-    insertItem.run(
-      uuid(),
-      name,
-      categoryId,
-      unitId,
-      reorder,
-      critical,
-      target,
-      1,
-      'SYSTEM',
-      now,
-      now
-    );
+  for (const [name, categoryId, unitId, reorder, critical, target] of defaults) {
+    insert.run(uuid(), name, categoryId, unitId, reorder, critical, target, now, now);
   }
 }
 
-// Utility functions
-function uuid() {
-  return crypto.randomUUID();
-}
-
-function getDb() {
-  return db;
-}
-
 function logAudit(tableName, recordId, action, details) {
-  const stmt = db.prepare(`
+  const insert = db.prepare(`
     INSERT INTO audit_logs (id, table_name, record_id, action, details, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
   `);
-
-  stmt.run(
-    uuid(),
-    tableName,
-    recordId,
-    action,
-    JSON.stringify(details || {}),
-    new Date().toISOString()
-  );
+  insert.run(uuid(), tableName, recordId, action, JSON.stringify(details || {}), new Date().toISOString());
 }
 
-// Initialize on module load
 initializeDatabase();
 seedDefaultCategoriesAndUnits();
 seedDefaultInventoryItems();
 
 module.exports = {
   db,
-  getDb,
   uuid,
   logAudit,
   initializeDatabase,

@@ -1,10 +1,9 @@
 /**
- * Inventory calculation engine
- * Central logic for all inventory calculations
- * Ensures consistent calculations across the entire application
+ * Central inventory calculation engine.
+ * All dashboard/report calculations should use this logic.
  */
 
-const { formatQuantity } = require('../utils/fraction');
+const { formatQuantity } = require('./fraction');
 
 function calculateInventorySnapshot({
   beginning = 0,
@@ -13,61 +12,56 @@ function calculateInventorySnapshot({
   physicalEnding = 0,
   item = {}
 }) {
-  const b = Number(beginning) || 0;
-  const p = Number(production) || 0;
-  const s = Number(stocksIn) || 0;
-  const e = Number(physicalEnding) || 0;
+  const begin = Number(beginning) || 0;
+  const prod = Number(production) || 0;
+  const stockIn = Number(stocksIn) || 0;
+  const ending = Number(physicalEnding) || 0;
 
-  const totalAvailable = b + p + s;
-  const actualUsage = totalAvailable - e;
+  const totalAvailable = begin + prod + stockIn;
+  const actualUsage = totalAvailable - ending;
 
-  // Determine status
   let status = 'OK';
   let recommendation = 'NO ACTION';
   let flag = null;
 
-  // Check if ending exceeds available
-  if (e > totalAvailable) {
+  if (ending > totalAvailable) {
     status = 'CHECK COUNT';
     recommendation = 'ENDING STOCK EXCEEDS AVAILABLE STOCK';
     flag = 'CHECK COUNT — ENDING STOCK EXCEEDS AVAILABLE STOCK';
-  } else if (e <= 0) {
+  } else if (ending <= 0) {
     status = 'OUT OF STOCK';
     recommendation = 'REPLENISH IMMEDIATELY';
   } else {
-    const criticalLevel = Number(item.critical_level) || 0;
-    const reorderLevel = Number(item.reorder_level) || 0;
-
-    if (criticalLevel > 0 && e <= criticalLevel) {
+    const criticalLevel = Number(item.critical_level || 0);
+    const reorderLevel = Number(item.reorder_level || 0);
+    if (criticalLevel > 0 && ending <= criticalLevel) {
       status = 'CRITICAL LOW';
       recommendation = 'REPLENISH IMMEDIATELY';
-    } else if (reorderLevel > 0 && e <= reorderLevel) {
+    } else if (reorderLevel > 0 && ending <= reorderLevel) {
       status = 'LOW STOCK';
       recommendation = 'REPLENISH SOON';
     }
   }
 
-  // Calculate suggested replenishment
-  const targetStock = Number(item.target_stock) || 0;
-  const suggestedReplenishment = Math.max(0, targetStock - e);
+  const targetStock = Number(item.target_stock || 0);
+  const suggestedReplenishment = Math.max(0, targetStock - ending);
 
   return {
-    beginning: b,
-    production: p,
-    stocksIn: s,
+    beginning: begin,
+    production: prod,
+    stocksIn: stockIn,
     totalAvailable,
-    physicalEnding: e,
+    physicalEnding: ending,
     actualUsage,
     status,
     recommendation,
     suggestedReplenishment,
     flag,
-    // Formatted versions for display
-    formattedBeginning: formatQuantity(b),
-    formattedProduction: formatQuantity(p),
-    formattedStocksIn: formatQuantity(s),
+    formattedBeginning: formatQuantity(begin),
+    formattedProduction: formatQuantity(prod),
+    formattedStocksIn: formatQuantity(stockIn),
     formattedTotalAvailable: formatQuantity(totalAvailable),
-    formattedPhysicalEnding: formatQuantity(e),
+    formattedPhysicalEnding: formatQuantity(ending),
     formattedActualUsage: formatQuantity(actualUsage),
     formattedSuggestedReplenishment: formatQuantity(suggestedReplenishment)
   };

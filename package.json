@@ -1,7 +1,7 @@
 {
   "name": "thc-inventory-system",
   "version": "1.0.0",
-  "description": "Restaurant inventory management system for THE HUNGRY CHEF",
+  "description": "THC restaurant inventory management system",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
