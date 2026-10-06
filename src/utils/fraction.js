@@ -1,63 +1,92 @@
-const { parseQuantity, formatQuantity } = require('./fraction');
+/**
+ * Fraction parsing and formatting utility
+ * Converts between fractions (1/2, 2 1/2) and decimals (0.5, 2.5)
+ */
 
-function parseFractionValue(input) {
-  return parseQuantity(input);
-}
-
-function isNumber(value) {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
-function calculateDailySnapshot({ itemId, item, operatingDate, productionQty, stockInQty, physicalEnding, previousEnding }) {
-  const beginning = Number(previousEnding || 0);
-  const production = Number(productionQty || 0);
-  const stocksIn = Number(stockInQty || 0);
-  const totalAvailable = beginning + production + stocksIn;
-  const ending = Number(physicalEnding || 0);
-  const usage = totalAvailable - ending;
-  let status = 'OK';
-  let recommendation = 'NO ACTION';
-
-  if (ending > totalAvailable) {
-    status = 'CHECK COUNT';
-    recommendation = 'ENDING STOCK EXCEEDS AVAILABLE STOCK';
-  } else if (ending <= 0) {
-    status = 'OUT OF STOCK';
-    recommendation = 'REPLENISH IMMEDIATELY';
-  } else if (item && item.critical_level != null && ending <= Number(item.critical_level)) {
-    status = 'CRITICAL LOW';
-    recommendation = 'REPLENISH IMMEDIATELY';
-  } else if (item && item.reorder_level != null && ending <= Number(item.reorder_level)) {
-    status = 'LOW STOCK';
-    recommendation = 'REPLENISH SOON';
+function parseQuantity(input) {
+  if (input === null || input === undefined || input === '') {
+    return null;
   }
 
-  const targetStock = item && item.target_stock != null ? Number(item.target_stock) : 0;
-  const suggestedReplenishment = Math.max(0, targetStock - ending);
+  const str = String(input).trim();
+  if (!str) return null;
 
-  return {
-    beginning,
-    production,
-    stocksIn,
-    totalAvailable,
-    physicalEnding: ending,
-    actualUsage: usage,
-    status,
-    recommendation,
-    suggestedReplenishment,
-    formattedBeginning: formatQuantity(beginning),
-    formattedProduction: formatQuantity(production),
-    formattedStocksIn: formatQuantity(stocksIn),
-    formattedEnding: formatQuantity(ending),
-    formattedUsage: formatQuantity(usage),
-    formattedReplenishment: formatQuantity(suggestedReplenishment),
-    flag: ending > totalAvailable ? 'CHECK COUNT — ENDING STOCK EXCEEDS AVAILABLE STOCK' : null
+  // Try parsing as decimal first
+  const decimal = parseFloat(str);
+  if (!Number.isNaN(decimal)) {
+    return decimal;
+  }
+
+  // Try parsing as mixed number like "2 1/2"
+  const mixedMatch = str.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixedMatch) {
+    const whole = parseInt(mixedMatch[1], 10);
+    const numerator = parseInt(mixedMatch[2], 10);
+    const denominator = parseInt(mixedMatch[3], 10);
+    if (denominator === 0) return null;
+    return whole + numerator / denominator;
+  }
+
+  // Try parsing as simple fraction like "1/2"
+  const fractionMatch = str.match(/^(\d+)\/(\d+)$/);
+  if (fractionMatch) {
+    const numerator = parseInt(fractionMatch[1], 10);
+    const denominator = parseInt(fractionMatch[2], 10);
+    if (denominator === 0) return null;
+    return numerator / denominator;
+  }
+
+  return null;
+}
+
+function formatQuantity(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return '0';
+  }
+
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '0';
+
+  // If it's a whole number
+  if (Number.isInteger(num)) {
+    return String(num);
+  }
+
+  // Common fractions
+  const fractionMap = {
+    0.5: '1/2',
+    0.25: '1/4',
+    0.75: '3/4',
+    0.125: '1/8',
+    0.333333: '1/3',
+    0.666667: '2/3'
   };
+
+  // Check for exact match with common fractions
+  for (const [decimal, fraction] of Object.entries(fractionMap)) {
+    if (Math.abs(num - parseFloat(decimal)) < 0.00001) {
+      return fraction;
+    }
+  }
+
+  // Check for mixed numbers (whole + fraction)
+  const whole = Math.floor(num);
+  const fractional = num - whole;
+
+  for (const [decimal, fraction] of Object.entries(fractionMap)) {
+    if (Math.abs(fractional - parseFloat(decimal)) < 0.00001) {
+      if (whole > 0) {
+        return `${whole} ${fraction}`;
+      }
+      return fraction;
+    }
+  }
+
+  // Fall back to decimal with up to 2 decimal places
+  return num.toFixed(2).replace(/\.?0+$/, '');
 }
 
 module.exports = {
-  parseFractionValue,
-  calculateDailySnapshot,
-  formatQuantity,
-  isNumber
+  parseQuantity,
+  formatQuantity
 };
